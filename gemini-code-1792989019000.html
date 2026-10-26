@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>สื่อการเรียนรู้ 3D Interactive: ลมบกลมทะเล และลมมรสุม (ป.6)</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Google Fonts (Sarabun & Mali) -->
+    <link href="https://fonts.googleapis.com/css2?family=Mali:wght@500;700&family=Sarabun:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Three.js Library -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <!-- OrbitControls for Three.js -->
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+    <!-- Chart.js for real-time graphs -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+    <style>
+        body {
+            font-family: 'Sarabun', sans-serif;
+            background-color: #0f172a;
+            color: #f8fafc;
+            overflow-x: hidden;
+        }
+        h1, h2, h3, .font-mali {
+            font-family: 'Mali', cursive;
+        }
+        /* Custom Glassmorphism */
+        .glass-panel {
+            background: rgba(30, 41, 59, 0.75);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        .glass-card {
+            background: rgba(15, 23, 42, 0.6);
+            backdrop-filter: blur(8px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+        }
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #0f172a;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #334155;
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #475569;
+        }
+        /* Canvas Styling */
+        #webgl-container {
+            width: 100%;
+            height: 100%;
+            position: absolute;
+            top: 0;
+            left: 0;
+            z-index: 0;
+        }
+    </style>
+</head>
+<body class="relative min-h-screen flex flex-col justify-between overflow-hidden">
+
+    <!-- 3D WebGL Canvas Container -->
+    <div id="webgl-container"></div>
+
+    <!-- Header Overlay -->
+    <header class="relative z-10 w-full p-4 glass-panel border-b border-slate-700/50 flex flex-wrap justify-between items-center gap-4">
+        <div class="flex items-center gap-3">
+            <div class="p-2.5 bg-indigo-600/30 border border-indigo-400/30 rounded-xl text-indigo-400">
+                <i class="fa-solid font-bold fa-wind text-2xl"></i>
+            </div>
+            <div>
+                <h1 class="text-xl md:text-2xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 via-sky-300 to-indigo-300">
+                    สื่อการเรียนรู้ 3D Interactive: ปรากฏการณ์บนโลกและภัยธรรมชาติ
+                </h1>
+                <p class="text-xs md:text-sm text-slate-400">ระดับชั้นประถมศึกษาปีที่ 6 • ลมบกลมทะเล และ ลมมรสุม</p>
+            </div>
+        </div>
+
+        <!-- Tab Switching Buttons -->
+        <div class="flex items-center gap-2 bg-slate-900/80 p-1.5 rounded-xl border border-slate-700/60">
+            <button id="btn-tab-breeze" onclick="switchModule('breeze')" class="px-4 py-2 rounded-lg text-sm font-semibold transition-all duration-200 bg-indigo-600 text-white shadow-lg shadow-indigo-500/30">
+                <i class="fa-solid fa-cloud-sun text-amber-300 mr-2"></i>1. ลมบกลมทะเล
+            </button>
+            <button id="btn-tab-monsoon" onclick="switchModule('monsoon')" class="px-4 py-2 rounded-lg text-sm font-semibold transition-all duration-200 text-slate-400 hover:text-white hover:bg-slate-800">
+                <i class="fa-solid fa-earth-asia text-emerald-400 mr-2"></i>2. ลมมรสุม
+            </button>
+            <button onclick="openQuizModal()" class="px-4 py-2 rounded-lg text-sm font-semibold transition-all duration-200 bg-emerald-600/80 hover:bg-emerald-600 text-white border border-emerald-400/30 ml-2">
+                <i class="fa-solid fa-clipboard-question mr-2"></i>แบบทดสอบ (3 ข้อ)
+            </button>
+        </div>
+    </header>
+
+    <!-- Main Content Grid HUD -->
+    <main class="relative z-10 flex-1 grid grid-cols-1 lg:grid-cols-12 gap-4 p-4 pointer-events-none">
+        
+        <!-- Left HUD: Controls & Parameters -->
+        <div class="lg:col-span-4 xl:col-span-3 flex flex-col gap-4 pointer-events-auto">
+            
+            <!-- Breeze Module Controls -->
+            <div id="controls-breeze" class="glass-panel p-5 rounded-2xl shadow-2xl border border-slate-700/60 flex flex-col gap-4">
+                <div class="flex justify-between items-center border-b border-slate-700/60 pb-3">
+                    <h2 class="text-base font-bold text-cyan-300 flex items-center gap-2">
+                        <i class="fa-solid fa-sliders"></i> ควบคุมตัวแปร (ลมบก-ลมทะเล)
+                    </h2>
+                    <span id="time-badge" class="px-2.5 py-1 bg-amber-500/20 text-amber-300 border border-amber-500/40 rounded-full text-xs font-semibold">
+                        <i class="fa-solid fa-sun mr-1"></i>เวลากลางวัน
+                    </span>
+                </div>
+
+                <!-- Day / Night Toggle Switch -->
+                <div>
+                    <label class="text-xs font-semibold text-slate-300 mb-2 block">ช่วงเวลาในการสังเกต:</label>
+                    <div class="grid grid-cols-2 gap-2 p-1 bg-slate-900/90 rounded-xl border border-slate-700">
+                        <button id="btn-day" onclick="setTimeOfDay('day')" class="py-2 rounded-lg text-xs font-bold transition-all bg-amber-500 text-slate-950 flex items-center justify-center gap-2 shadow-md">
+                            <i class="fa-solid fa-sun"></i> กลางวัน (ลมทะเล)
+                        </button>
+                        <button id="btn-night" onclick="setTimeOfDay('night')" class="py-2 rounded-lg text-xs font-bold transition-all text-slate-400 hover:text-white flex items-center justify-center gap-2">
+                            <i class="fa-solid fa-moon"></i> กลางคืน (ลมบก)
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Land Temp Slider -->
+                <div>
+                    <div class="flex justify-between text-xs mb-1">
+                        <span class="text-slate-300 font-semibold"><i class="fa-solid fa-mountain text-amber-400 mr-1"></i>อุณหภูมิพื้นดิน:</span>
+                        <span id="val-land-temp" class="text-amber-400 font-bold">35 °C</span>
+                    </div>
+                    <input type="range" id="slider-land-temp" min="15" max="45" value="35" oninput="updateBreezeParams()" class="w-full accent-amber-500 bg-slate-700 rounded-lg h-2 cursor-pointer">
+                </div>
+
+                <!-- Sea Temp Slider -->
+                <div>
+                    <div class="flex justify-between text-xs mb-1">
+                        <span class="text-slate-300 font-semibold"><i class="fa-solid fa-water text-cyan-400 mr-1"></i>อุณหภูมิพื้นน้ำ:</span>
+                        <span id="val-sea-temp" class="text-cyan-400 font-bold">25 °C</span>
+                    </div>
+                    <input type="range" id="slider-sea-temp" min="15" max="45" value="25" oninput="updateBreezeParams()" class="w-full accent-cyan-400 bg-slate-700 rounded-lg h-2 cursor-pointer">
+                </div>
+
+                <!-- Chart Container -->
+                <div class="glass-card p-3 rounded-xl">
+                    <h3 class="text-xs font-semibold text-slate-300 mb-2 flex items-center justify-between">
+                        <span>เปรียบเทียบอุณหภูมิ Real-time</span>
+                        <i class="fa-solid fa-chart-simple text-indigo-400"></i>
+                    </h3>
+                    <div class="h-32 relative">
+                        <canvas id="tempChart"></canvas>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Monsoon Module Controls -->
+            <div id="controls-monsoon" class="glass-panel p-5 rounded-2xl shadow-2xl border border-slate-700/60 flex flex-col gap-4 hidden">
+                <div class="flex justify-between items-center border-b border-slate-700/60 pb-3">
+                    <h2 class="text-base font-bold text-emerald-300 flex items-center gap-2">
+                        <i class="fa-solid fa-compass"></i> ควบคุมฤดูกาลมรสุม
+                    </h2>
+                    <span id="monsoon-badge" class="px-2.5 py-1 bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 rounded-full text-xs font-semibold">
+                        มรสุมตะวันตกเฉียงใต้
+                    </span>
+                </div>
+
+                <!-- Season Selection -->
+                <div>
+                    <label class="text-xs font-semibold text-slate-300 mb-2 block">เลือกมรสุมประจําฤดูในประเทศไทย:</label>
+                    <div class="flex flex-col gap-2">
+                        <button id="btn-monsoon-sw" onclick="setMonsoonSeason('sw')" class="p-3 rounded-xl border text-left transition-all bg-emerald-600/30 border-emerald-400 text-white flex items-start gap-3">
+                            <i class="fa-solid fa-cloud-showers-heavy text-xl text-emerald-400 mt-1"></i>
+                            <div>
+                                <div class="font-bold text-xs">มรสุมตะวันตกเฉียงใต้</div>
+                                <div class="text-[11px] text-slate-300">พัดจากมห
